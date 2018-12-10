@@ -1,6 +1,6 @@
 //******************************************************************************
 // Use this to change size
-const term = new Terminal({ cols: 125, cursorBlink: false, rows: 51, experimentalCharAtlas: "dynamic", scrollback: 0, letterSpacing: 0, renderer: "dom" });
+const term = new Terminal({ cols: 120, cursorBlink: false, rows: 51, experimentalCharAtlas: "dynamic", scrollback: 0, letterSpacing: 0, renderer: "dom" });
 // Don't touch this stuff
 //******************************************************************************
 term.open(document.getElementById('terminal'));
@@ -10,6 +10,8 @@ var intInput;
 
 // This place is a mess.  It sets the default files, don't touch.
 {
+	var screenCover = "                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       \r\n                                                                                                                       ";
+
 	// ☢◢◣╳
 	var hudString = "[0m[38;5;15m#######################################################################################################################\r\n" +
 					"[38;5;15m#  Player  #  Layers   # Currently Selected #    [38;5;226m●[38;5;230m●[38;5;15m   ->    [38;5;226m●[38;5;230m●[38;5;28m●[38;5;15m  /\\    [38;5;226m●[38;5;230m●[38;5;240m●[38;5;7m$[38;5;4m●[38;5;15m   =>  #  W/A/S/D: Cursor    R/F: Scroll  #\r\n" +
@@ -62,6 +64,9 @@ var intInput;
 	var player0 = 0;
 	var fileCoord = 1;
 	var currentRow = 0;
+	var moveRow;
+	var moveLayer;
+	var moveIndex;
 
 	var xPosScreen = 1;
 	var yPosScreen = 1;
@@ -77,8 +82,12 @@ var intInput;
 	var numLines = 90;
 	var moveMode = false;
 	var rowsToUpdate = [ true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true ];
+	// At this point I wonder if true is a word.
 
-	var overlayRows = [];
+	var overlay1Rows = [];
+	var overlay2Rows = [];
+	var overlay3Rows = [];
+	var overlay4Rows = [];
 	var mapSec = [];
 
 	var topCut = 0;
@@ -94,15 +103,6 @@ var intInput;
 }
 
 term.on('key', (key, _ev) => {
-	/**
-	console.log(key.charCodeAt(0) + " and " + key)
-	if(echoMode === true)
-	{
-		if (key.charCodeAt(0) == 13)
-			term.write('\n');
-		term.write(key);
-	}
-	*/
 	strInput = key;
 	if(onMainPage === true)
 	{
@@ -581,6 +581,229 @@ function mainPageInput()
 			term.write("\rLayer Hidden or Too Close to Edge");
 		}
 	}
+	else if( ( input === "	" ) && ( moveMode === false ) )		// Wow, I so feel like this is cheating.
+	{
+		if( player0 === 5 )
+			player0 = 0;
+		else
+			player0++;
+
+		var i;
+		for (i = 0; i < layer1Coords.length; ++i)
+		{
+			if( layer1Owner[i] === player0 )
+				layer1Craft[i] = 1;
+		}
+
+		var i;
+		for (i = 0; i < layer2Coords.length; ++i)
+		{
+			if( layer2Owner[i] === player0 )
+			{
+				layer2Moves[i] = 1;
+				layer2Attacks[i] = 1;
+			}
+		}
+
+		// ignore the item layer
+
+		var i;
+		for (i = 0; i < layer4Coords.length; ++i)
+		{
+			if( layer4Owner[i] === player0 )
+			{
+				layer4Moves[i] = 1;
+				layer4Attacks[i] = 1;
+			}
+		}
+
+		bumpsLeft[player0] = bumpsTotal[player0];
+	}
+	else if( input === ' ' )		// A space, move mode
+	{
+		if( moveMode === false )
+		{
+			moveRow = currentRow;
+			moveMode = true;
+			if(layer4Coords.includes(fileCoord))
+			{
+				var inputArray = layer4Coords;
+				moveLayer = 4;
+			}
+			else if(layer3Coords.includes(fileCoord))
+			{
+				var inputArray = layer3Coords;
+				moveLayer = 3;
+				coverItem(3, 0, fileCoord);		// Cover now if item
+			}
+			else if(layer2Coords.includes(fileCoord))
+			{
+				var inputArray = layer2Coords;
+				moveLayer = 2;
+			}
+			else if(layer1Coords.includes(fileCoord))
+			{
+				var inputArray = layer1Coords;
+				moveLayer = 1;
+			}
+			else
+			{
+				term.write("No Item Selected");
+				moveMode = false;
+			}
+
+			if( moveMode === true )
+			{
+				moveIndex = inputArray.indexOf(fileCoord);
+				term.write("Moving index " + moveIndex + " on layer " + moveLayer);
+			}
+		}
+		else
+		{
+			moveMode = false;
+
+			if( moveLayer === 1 )
+			{
+				var moveType = layer1Types[moveIndex];
+				var movePlayer = layer1Owner[moveIndex];
+				var moveFrom = layer1Coords[moveIndex];
+			}
+			else if( moveLayer === 2 )
+			{
+				var moveType = layer2Types[moveIndex];
+				var movePlayer = layer2Owner[moveIndex];
+				var moveFrom = layer2Coords[moveIndex];
+			}
+			else if( moveLayer === 3 )
+			{
+				// The start position is already gone
+			}
+			else if( moveLayer === 4 )
+			{
+				var moveType = layer4Types[moveIndex];
+				var movePlayer = layer4Owner[moveIndex];
+				var moveFrom = layer4Coords[moveIndex];
+			}
+
+			if( moveLayer != 3 )
+			{
+				var rowOld = currentRow;
+				currentRow = moveRow;
+				coverItem(moveLayer, moveType, moveFrom);
+				currentRow = rowOld;
+			}
+
+			if( moveLayer === 1 )
+				layer1Coords[moveIndex] = fileCoord;
+			else if( moveLayer === 2 )
+				layer2Coords[moveIndex] = fileCoord;
+			else if( moveLayer === 3 )
+				layer3Coords[moveIndex] = fileCoord;
+			else if( moveLayer === 4 )
+				layer4Coords[moveIndex] = fileCoord;
+
+			if( moveLayer === 3 )
+				drawItem(3, 0, moveType);
+			else
+				drawItem(moveLayer, moveType, movePlayer);
+		}
+	}
+	else if( input === "t" )
+	{
+		mapInView = !mapInView;
+		updateMapLayer();
+	}
+	else if( ( input === "g" ) && ( moveMode === false ) )
+	{
+		var deleting = true;		// deleting something
+		var deleteLayer;
+		var inputArray;
+
+		if( layer4Coords.includes(fileCoord) )
+		{
+			inputArray = layer4Coords;
+			deleteLayer = 4;
+		}
+		else if( layer3Coords.includes(fileCoord) )
+		{
+			inputArray = layer3Coords;
+			deleteLayer = 3;
+			coverItem(3, 0, fileCoord);
+		}
+		else if( layer2Coords.includes(fileCoord) )
+		{
+			inputArray = layer2Coords;
+			deleteLayer = 2;
+		}
+		else if( layer1Coords.includes(fileCoord) )
+		{
+			inputArray = layer1Coords;
+			deleteLayer = 1;
+		}
+		else
+		{
+			term.write("No Item Selected");
+			deleting = false;
+		}
+
+		if( deleting === true )		// If you are actualy on an item...
+		{
+			var deleteIndex = inputArray.indexOf(fileCoord);		// get the index of the item you are on top of.
+
+			if( deleteLayer === 1 )
+			{
+				var deleteType = layer1Types[deleteIndex];
+
+				layer1Coords.splice(deleteIndex, 1);
+				layer1Types.splice(deleteIndex, 1);
+				layer1Owner.splice(deleteIndex, 1);
+				layer1Health.splice(deleteIndex, 1);
+				layer1Craft.splice(deleteIndex, 1);
+			}
+			else if( deleteLayer === 2 )
+			{
+				var deleteType = layer2Types[deleteIndex];
+
+				layer2Coords.splice(deleteIndex, 1);
+				layer2Types.splice(deleteIndex, 1);
+				layer2Owner.splice(deleteIndex, 1);
+				layer2Attacks.splice(deleteIndex, 1);
+				layer2Moves.splice(deleteIndex, 1);
+			}
+			else if( deleteLayer === 3 )
+			{
+				var deleteType = layer3Types[deleteIndex];
+
+				layer3Coords.splice(deleteIndex, 1);
+				layer3Types.splice(deleteIndex, 1);
+			}
+			else if( deleteLayer === 4 )
+			{
+				var deleteType = layer4Types[deleteIndex];
+
+				layer4Coords.splice(deleteIndex, 1);
+				layer4Types.splice(deleteIndex, 1);
+				layer4Owner.splice(deleteIndex, 1);
+				layer4Attacks.splice(deleteIndex, 1);
+				layer4Moves.splice(deleteIndex, 1);
+			}
+
+			if( ( deleteLayer === 1 ) && ( deleteType === 1 ) )
+				bumpsTotal[player0]--;
+
+			term.write("Deleted index " + deleteIndex + " from layer " + deleteLayer);
+
+			if( deleteLayer != 3 )
+			{
+				coverItem(deleteLayer, deleteType, fileCoord);
+				updateMapLayer();
+			}
+		}
+	}
+	else if( ( input === "=" ) && ( moveMode === false ) )
+	{
+		save();
+	}
 }
 
 function getLine(string, startIndex)
@@ -588,6 +811,57 @@ function getLine(string, startIndex)
 	var tokens = string.split("╳").slice(startIndex);
 	var split1 = tokens.join("╳");
 	return split1.substring(0, lineLength);
+}
+
+function overlayLayerLine(layer, line)
+{
+	var cont = false;
+	if( ( layerVis[0] === true ) && ( layer === 1 ) )
+	{
+		cont = true;
+		var lineWorkMap = getLine(layer1map, line);
+		var lineWorkColor = getLine(layer1Cmap, line);
+	}
+	else if( ( layerVis[1] === true ) && ( layer === 2 ) )
+	{
+		cont = true;
+		var lineWorkMap = getLine(layer2map, line);
+		var lineWorkColor = getLine(layer2Cmap, line);
+	}
+	else if( ( layerVis[2] === true ) && ( layer === 3 ) )
+	{
+		cont = true;
+		var lineWorkMap = getLine(layer3map, line);
+		var lineWorkColor = getLine(layer3Cmap, line);
+	}
+	else if( ( layerVis[3] === true ) && ( layer === 4 ) )
+	{
+		cont = true;
+		var lineWorkMap = getLine(layer4map, line);
+		var lineWorkColor = getLine(layer4Cmap, line);
+	}
+
+	if(!cont)
+		return;				// If I am thinking right this will never happen.
+
+	var outString = "";
+
+	var space;
+	var i;
+	for(i = 0; i <= ( lineLength - 2 ); i++)
+	{
+		space = lineWorkMap.charAt(i);
+		if( space != " " )
+		{
+			outString += arrayOverlayColors[parseInt(lineWorkColor.charAt(i), 16)];
+			outString += space;
+		}
+		else
+		{
+			outString += "\x1b[1C";
+		}
+	}
+	return outString;
 }
 
 function overlayLine(line)
@@ -759,35 +1033,68 @@ function updateMapLayer()
 	moveCursor(0, 0);
 	echoMode = false;
 	if( mapInView === true )
-	{
 		term.writeln(mapSec[topCut / 10]);
-	}
 	else
-	{
-		//cat "$ramDiskDir/blank.map"
-	}
+		term.write(screenCover);
 
-	var l;
-	for(l = 0; l <= 90; l++)
+	var r;
+	for(r = 0; r <= 90; r++)
 	{
-		if( rowsToUpdate[l] === true )
+		if( rowsToUpdate[r] === true )
 		{
-			overlayRows[l] = overlayLine(l);
-			rowsToUpdate[l] = false;
+			rowsToUpdate[r] = false;
+			overlay1Rows[r] = overlayLayerLine(1, r)
+			overlay2Rows[r] = overlayLayerLine(2, r)
+			overlay3Rows[r] = overlayLayerLine(3, r)
+			overlay4Rows[r] = overlayLayerLine(4, r)
 		}
 	}
 
-	moveCursor(0, 0);
-	var i;
-	for(i = topCut; i <= botCut; i++)
+	term.write("\x1b[21m");
+
+	if( layerVis[0] === true )
 	{
-		term.writeln(overlayRows[i]);
+		moveCursor(0, 0);
+		var i;
+		for(i = topCut; i <= botCut; i++)
+		{
+			term.writeln(overlay1Rows[i]);
+		}
+	}
+
+	if( layerVis[1] === true )
+	{
+		moveCursor(0, 0);
+		var i;
+		for(i = topCut; i <= botCut; i++)
+		{
+			term.writeln(overlay2Rows[i]);
+		}
+	}
+
+	if( layerVis[2] === true )
+	{
+		moveCursor(0, 0);
+		var i;
+		for(i = topCut; i <= botCut; i++)
+		{
+			term.writeln(overlay3Rows[i]);
+		}
+	}
+
+	if( layerVis[3] === true )
+	{
+		moveCursor(0, 0);
+		var i;
+		for(i = topCut; i <= botCut; i++)
+		{
+			term.writeln(overlay4Rows[i]);
+		}
 	}
 }
 
 function addItem(layer, item, color)
 {
-	var placeCoord = (fileCoord - 1);
 	// addItem
 	// 1: Layer
 	// 2: Item Number
@@ -874,7 +1181,7 @@ function addItem(layer, item, color)
 		layer4Attacks.push(1);
 		layer4Moves.push(1);
 	}
-	if( ( item === 1 ) && ( "$1" === 4 ) )
+	if( ( item === 1 ) && ( layer === 4 ) )
 	{
 		// add tank
 		layer4Coords.push(fileCoord);
@@ -1120,9 +1427,9 @@ function drawItem(layer, item, colorInput)
 	}
 }
 
-function coverItem(layer, item, removeCoord)
+function coverItem(layer, item, remove)
 {
-	var placeCoord = (fileCoord - 1);
+	var removeCoord = (remove - 1);
 
 	// coverItem
 	// 1: Layer
@@ -1321,12 +1628,51 @@ function coverItem(layer, item, removeCoord)
 	}
 }
 
+function save()
+{
+	var save =
+	{
+		genWorkMapSave: genWorkMap,
+		genColorWorkSave: genColorWork,
+		layer1mapSave: layer1map,
+		layer1CmapSave: layer1Cmap,
+		layer2mapSave: layer2Cmap,
+		layer2CmapSave: layer2Cmap,
+		layer3mapSave: layer3map,
+		layer3CmapSave: layer3Cmap,
+		layer4mapSave: layer4map,
+		layer4CmapSave: layer4Cmap,
+
+		layer1CoordsSave: layer1Coords,
+		layer1TypesSave: layer1Types,
+		layer1OwnerSave: layer1Owner,
+		layer1HealthSave: layer1Health,
+		layer1CraftSave: layer1Craft,
+
+		layer2CoordsSave: layer2Coords,
+		layer2TypesSave: layer2Types,
+		layer2OwnerSave: layer2Owner,
+		layer2AttacksSave: layer2Attacks,
+		layer2MovesSave: layer2Moves,
+
+		layer3CoordsSave: layer3Coords,
+		layer3TypesSave: layer3Types,
+
+		layer4CoordsSave: layer4Coords,
+		layer4TypesSave: layer4Types,
+		layer4OwnerSave: layer4Owner,
+		layer4AttacksSave: layer4Attacks,
+		layer4MovesSave: layer4Moves,
+
+		bumpsTotalSave: bumpsTotal,
+	}
+	console.log(save);
+}
+
 String.prototype.replaceAt=function(index, replacement)
 {
     return this.substr(0, index) + replacement+ this.substr(index + replacement.length);
 }
-
-
 
 
 
@@ -1335,6 +1681,7 @@ function main()
 	//var element = document.getElementById("startButton");
 	//element.parentNode.removeChild(element);
 
+	term.focus();
 	generateMap();
 	cls();
 	updateMapLayer();
